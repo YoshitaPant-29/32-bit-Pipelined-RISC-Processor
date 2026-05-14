@@ -11,4 +11,4 @@ A hardware project focused on pipelined CPU design, hazard resolution, and FPGA 
 - FPGA synthesis and testing
 
 ### Tech Stack
-Verilog • SystemVerilog • Cadence Xcelium • GTKWave • Xilinx Vivado • Nexys 4 DDR FPGA
+Verilog • SystemVerilog • Eda Playground • GTKWave • Xilinx Vivado • Nexys 4 DDR FPGA
