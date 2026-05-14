@@ -2,53 +2,68 @@
 module tb_pipeline;
     reg clk, reset;
 
-    // CPI measurement
-    integer cycle_count;
-    integer instr_committed;
+    integer cycle_count, instr_committed, stall_count;
+    integer seq_start_cycle, seq_start_instr;
 
     pipeline_top DUT (.clk(clk), .reset(reset));
-
-    // Clock: 10ns period
     always #5 clk = ~clk;
 
-    // Count instructions committed at WB stage
-    // A valid WB commit = reg_write asserted with non-zero rd
+    // Count stalls: when pc_write is deasserted (pipeline frozen)
     always @(posedge clk) begin
-        if (!reset && DUT.mem_wb_reg_write && DUT.mem_wb_rd != 0)
-            instr_committed = instr_committed + 1;
-        cycle_count = cycle_count + 1;
+        if (!reset) begin
+            cycle_count = cycle_count + 1;
+            if (!DUT.pc_write) stall_count = stall_count + 1;
+            if (DUT.mem_wb_reg_write && DUT.mem_wb_rd != 0)
+                instr_committed = instr_committed + 1;
+        end
     end
 
+    task print_stats;
+        input [127:0] label;
+        integer c, i;
+        begin
+            c = cycle_count - seq_start_cycle;
+            i = instr_committed - seq_start_instr;
+            $display("--- %s ---", label);
+            $display("  Cycles     : %0d", c);
+            $display("  Instrs     : %0d", i);
+            if (i > 0) begin
+                $display("  CPI        : %0.2f", $itor(c) / $itor(i));
+                $display("  Throughput : %0.4f instrs/ns  (clk=10ns)",
+                         $itor(i) / ($itor(c) * 10.0));
+                $display("  Latency    : %0d cycles per instr (single instr = 5 + stalls)",
+                         c / i);
+            end
+            seq_start_cycle = cycle_count;
+            seq_start_instr = instr_committed;
+        end
+    endtask
+
     initial begin
-        $dumpfile("pipeline.vcd");
-        $dumpvars(0, tb_pipeline);
+        $dumpfile("pipeline.vcd"); $dumpvars(0, tb_pipeline);
+        clk=0; reset=1;
+        cycle_count=0; instr_committed=0; stall_count=0;
+        seq_start_cycle=0; seq_start_instr=0;
+        #15 reset=0;
 
-        clk = 0; reset = 1;
-        cycle_count = 0; instr_committed = 0;
-        #15 reset = 0;
+        // Seq 1: ADD->ADD->ADD (forwarding, no stalls expected)
+        #80; print_stats("SEQ1: ALU->ALU forwarding (ADD->ADD->ADD)");
 
-        // Run enough cycles to drain the pipeline
-        #300;
+        // Seq 2: LW->ADD (1 stall expected)
+        #60; print_stats("SEQ2: Load-use hazard (LW->ADD)");
 
-        $display("========================================");
-        $display(" Pipeline Simulation Summary");
-        $display("========================================");
-        $display(" Total cycles      : %0d", cycle_count);
-        $display(" Instrs committed  : %0d", instr_committed);
-        if (instr_committed > 0)
-            $display(" CPI               : %0.2f",
-                     $itor(cycle_count) / $itor(instr_committed));
-        $display("========================================");
-        $display(" Final register file state:");
-        $display("  x1 = %0d", DUT.RF.regs[1]);
-        $display("  x2 = %0d", DUT.RF.regs[2]);
-        $display("  x3 = %0d", DUT.RF.regs[3]);
-        $display("  x4 = %0d (should be 99 from LW)", DUT.RF.regs[4]);
-        $display("  x5 = %0d", DUT.RF.regs[5]);
-        $display("  x8 = %0d (branch target result)", DUT.RF.regs[8]);
-        $display("  x6 = %0d (should be 0 - was flushed)", DUT.RF.regs[6]);
-        $display("  x7 = %0d (should be 0 - was flushed)", DUT.RF.regs[7]);
-        $display("========================================");
+        // Seq 3: Branch flush (2 instrs flushed)
+        #80; print_stats("SEQ3: Branch flush (BEQ taken)");
+
+        // Full run summary
+        $display("=== FULL RUN ===");
+        $display("  Total cycles : %0d", cycle_count);
+        $display("  Total instrs : %0d", instr_committed);
+        $display("  Total stalls : %0d", stall_count);
+        $display("  Overall CPI  : %0.2f",
+                 $itor(cycle_count) / $itor(instr_committed));
+        $display("  Reg x4 (LW result, expect 99): %0d", DUT.RF.regs[4]);
+        $display("  Reg x6 (flushed, expect  0 ): %0d", DUT.RF.regs[6]);
         $finish;
     end
 endmodule
