@@ -1,9 +1,14 @@
-# 32-bit-Pipelined-RISC-Processor
+## 32-bit 5-Stage Pipelined RISC-V Processor
 
-Designed a 32-bit 5-stage pipelined RISC-V processor in Verilog with IF, ID, EX, MEM, and WB pipeline stages.
+A hardware project focused on pipelined CPU design, hazard resolution, and FPGA implementation.
 
-Developed RTL modules for the ALU, register file, control unit, instruction/data memory, forwarding unit, and hazard detection unit.
+### Features
+- 5-stage pipeline: IF, ID, EX, MEM, WB
+- Forwarding unit for data hazard resolution
+- Load-use stall handling
+- Branch flush logic for control hazards
+- Simulation-based verification with waveform debug
+- FPGA synthesis and testing
 
-Implemented EX/MEM-to-EX and MEM/WB-to-EX forwarding, load-use stalling, and branch flush logic to handle pipeline hazards.
-
-Built a verification environment that measured 35 committed instructions, 100 total cycles, 1 stall cycle, CPI of 2.86, and throughput of 0.035 instr/ns; synthesized and tested the design on a Nexys 4 DDR FPGA board.
+### Tech Stack
+Verilog • SystemVerilog • Cadence Xcelium • GTKWave • Xilinx Vivado • Nexys 4 DDR FPGA
